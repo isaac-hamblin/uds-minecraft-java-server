@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: minecraft-bedrock
+    labels:
+        app: minecraft-bedrock
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: minecraft-bedrock
+    template:
+        metadata:
+            labels:
+              app: minecraft-bedrock
+        spec:
+            containers:
+              - name: minecraft
+                image: itzg/minecraft-bedrock-server:latest
+                imagePullPolicy: IfNotPresent
+                env:
+                  - name: EULA
+                    value: "TRUE"
+                  - name: GAMEMODE
+                    value: "creative"
+                ports:
+                  - containerPort: 19132
+                    protocol: UDP
+                    name: bedrock

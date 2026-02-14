@@ -7,8 +7,14 @@ metadata:
 
 packages:
   - name: core
-    repository: ghcr.io/defenseunicorns/uds-core/core
-    ref: 0.23.1
+    repository: ghcr.io/defenseunicorns/packages/uds/core
+    ref: 0.61.1-registry1
+    overrides:
+      ingress:
+        values:
+          service:
+            ports:
 
   - name: minecraft-bedrock
     path: zarf-package-minecraft-bedrock-amd64.tar.zst
+    ref: 0.0.1

@@ -10,10 +10,15 @@ packages:
     repository: ghcr.io/defenseunicorns/packages/uds/core
     ref: 0.61.1-registry1
     overrides:
-      ingress:
-        values:
-          service:
-            ports:
+      istio-tenant-gateway:
+        gateway:
+          values:
+            - path: service.ports
+              value:
+                - name: minecraft
+                  port: 19132
+                  targetPort: 19132
+                  protocol: UDP
 
   - name: minecraft-bedrock
     path: zarf-package-minecraft-bedrock-amd64.tar.zst

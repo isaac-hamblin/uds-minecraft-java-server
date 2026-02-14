@@ -1,0 +1,15 @@
+kind: ZarfPackageConfig
+metadata:
+  name: minecraft-bedrock
+  description: "Minecraft Bedrock Server for UDS"
+
+components:
+  - name: server
+    required: true
+    manifests:
+      - name: minecraft-manifests
+        files:
+          - manifests/deployment.yaml
+          - manifests/service.yaml
+    images:
+      - "itzg/minecraft-bedrock-server:latest"

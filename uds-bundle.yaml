@@ -1,0 +1,14 @@
+kind: UDSBundle
+metadata:
+  name: minecraft-bundle
+  description: "A secure, air-gapped Minecraft Bedrock Server"
+  version: 0.0.1
+  architecture: amd64
+
+packages:
+  - name: core
+    repository: ghcr.io/defenseunicorns/uds-core/core
+    ref: 0.23.1
+
+  - name: minecraft-bedrock
+    path: zarf-package-minecraft-bedrock-amd64.tar.zst

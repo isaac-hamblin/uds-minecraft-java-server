@@ -1,11 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: minecraft-bedrock-svc
+  name: minecraft-java
+  namespace: minecraft
 spec:
+  type: ClusterIP
   selector:
-    app: minecraft-bedrock
+    app: minecraft-java
   ports:
-    - protocol: UDP
-      port: 19132
-      targetPort: 19132
+    - name: tcp-minecraft
+      protocol: TCP
+      port: 25565
+      targetPort: 25565

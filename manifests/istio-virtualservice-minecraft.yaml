@@ -1,0 +1,18 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: minecraft-tcp
+  namespace: minecraft
+spec:
+  gateways:
+    - istio-tenant-gateway/minecraft-tcp-gateway
+  hosts:
+    - "*"
+  tcp:
+    - match:
+        - port: 25565
+      route:
+        - destination:
+            host: minecraft-java.minecraft.svc.cluster.local
+            port:
+              number: 25565

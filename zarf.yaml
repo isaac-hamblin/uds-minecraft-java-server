@@ -1,15 +1,19 @@
 kind: ZarfPackageConfig
 metadata:
-  name: minecraft-bedrock
-  description: "Minecraft Bedrock Server for UDS"
+  name: minecraft-java
+  description: "Minecraft Java Edition Server for UDS"
 
 components:
   - name: server
     required: true
     manifests:
       - name: minecraft-manifests
+        namespace: minecraft
         files:
           - manifests/deployment.yaml
           - manifests/service.yaml
+          - manifests/istio-gateway-minecraft.yaml
+          - manifests/istio-virtualservice-minecraft.yaml
+          - manifests/uds-package-minecraft.yaml
     images:
-      - "itzg/minecraft-bedrock-server:latest"
+      - "itzg/minecraft-server:latest"

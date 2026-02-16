@@ -1,0 +1,16 @@
+apiVersion: uds.dev/v1alpha1
+kind: Package
+metadata:
+  name: minecraft
+  namespace: minecraft
+spec:
+  network:
+    allow:
+      - direction: Ingress
+        selector:
+          app: minecraft-java
+        remoteNamespace: istio-tenant-gateway
+        remoteSelector:
+          app: tenant-ingressgateway
+        port: 25565
+        description: "Minecraft Java ingress from tenant gateway"

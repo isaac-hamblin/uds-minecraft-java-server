@@ -1,7 +1,7 @@
 kind: UDSBundle
 metadata:
   name: minecraft-bundle
-  description: "A secure, air-gapped Minecraft Bedrock Server"
+  description: "A secure, air-gapped Minecraft Java Server"
   version: 0.0.1
   architecture: amd64
 
@@ -13,13 +13,28 @@ packages:
       istio-tenant-gateway:
         gateway:
           values:
-            - path: service.ports
+            - path: "service.ports"
               value:
-                - name: minecraft
-                  port: 19132
-                  targetPort: 19132
-                  protocol: UDP
+                # KEEP the default ports exactly like the docs show
+                - name: status-port
+                  port: 15021
+                  protocol: TCP
+                  targetPort: 15021
+                - name: http2
+                  port: 80
+                  protocol: TCP
+                  targetPort: 80
+                - name: https
+                  port: 443
+                  protocol: TCP
+                  targetPort: 443
 
-  - name: minecraft-bedrock
-    path: zarf-package-minecraft-bedrock-amd64.tar.zst
+                # Add Minecraft Java TCP
+                - name: tcp-minecraft
+                  port: 25565        # external port on the LB
+                  protocol: TCP
+                  targetPort: 25565  # port Istio gateway listens on
+
+  - name: minecraft-java
+    path: zarf-package-minecraft-java-amd64.tar.zst
     ref: 0.0.1

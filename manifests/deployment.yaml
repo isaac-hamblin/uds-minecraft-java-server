@@ -1,29 +1,40 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-    name: minecraft-bedrock
-    labels:
-        app: minecraft-bedrock
+  name: minecraft-java
+  namespace: minecraft
+  labels:
+    app: minecraft-java
 spec:
-    replicas: 1
-    selector:
-        matchLabels:
-            app: minecraft-bedrock
-    template:
-        metadata:
-            labels:
-              app: minecraft-bedrock
-        spec:
-            containers:
-              - name: minecraft
-                image: itzg/minecraft-bedrock-server:latest
-                imagePullPolicy: IfNotPresent
-                env:
-                  - name: EULA
-                    value: "TRUE"
-                  - name: GAMEMODE
-                    value: "creative"
-                ports:
-                  - containerPort: 19132
-                    protocol: UDP
-                    name: bedrock
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minecraft-java
+  template:
+    metadata:
+      labels:
+        app: minecraft-java
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: "OnRootMismatch"
+      volumes:
+        - name: data
+          emptyDir: {}
+      containers:
+        - name: minecraft
+          image: itzg/minecraft-server:latest
+          env:
+            - name: EULA
+              value: "TRUE"
+            - name: MEMORY
+              value: "2G"
+          ports:
+            - containerPort: 25565
+              protocol: TCP
+              name: mc
+          volumeMounts:
+            - name: data
+              mountPath: /data

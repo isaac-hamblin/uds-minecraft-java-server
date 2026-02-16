@@ -6,6 +6,9 @@ metadata:
   architecture: amd64
 
 packages:
+  - name: metallb
+    repository: ghcr.io/defenseunicorns/packages/metallb
+    ref: 0.1.2
   - name: core
     repository: ghcr.io/defenseunicorns/packages/uds/core
     ref: 0.61.1-registry1
@@ -34,6 +37,7 @@ packages:
                   port: 25565        # external port on the LB
                   protocol: TCP
                   targetPort: 25565  # port Istio gateway listens on
+                  nodePort: 32565
 
   - name: minecraft-java
     path: zarf-package-minecraft-java-amd64.tar.zst

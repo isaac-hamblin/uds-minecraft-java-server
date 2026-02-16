@@ -25,12 +25,14 @@ spec:
           emptyDir: {}
       containers:
         - name: minecraft
-          image: itzg/minecraft-server:latest
+          image: minecraft-java-server:latest
           env:
             - name: EULA
               value: "TRUE"
             - name: MEMORY
               value: "2G"
+            - name: ONLINE_MODE
+              value: "false"
           ports:
             - containerPort: 25565
               protocol: TCP

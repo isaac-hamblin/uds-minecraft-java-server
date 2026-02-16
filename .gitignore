@@ -1,1 +1,3 @@
 *.tar.zst
+*.zip
+.build/

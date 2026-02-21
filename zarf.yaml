@@ -15,5 +15,6 @@ components:
           - manifests/istio-gateway-minecraft.yaml
           - manifests/istio-virtualservice-minecraft.yaml
           - manifests/uds-package-minecraft.yaml
+          - manifests/pvc.yaml
     images:
       - "minecraft-java-server:latest"

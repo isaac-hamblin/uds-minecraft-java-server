@@ -22,7 +22,8 @@ spec:
         fsGroupChangePolicy: "OnRootMismatch"
       volumes:
         - name: data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: minecraft-data
       containers:
         - name: minecraft
           image: minecraft-java-server:latest

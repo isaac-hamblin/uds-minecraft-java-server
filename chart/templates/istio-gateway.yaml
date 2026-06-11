@@ -1,0 +1,19 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{ include "minecraft-java.fullname" . }}-tcp
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "minecraft-java.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- toYaml .Values.gateway.selector | nindent 4 }}
+  servers:
+    - port:
+        number: {{ .Values.gateway.port }}
+        name: {{ .Values.gateway.portName }}
+        protocol: TCP
+      hosts:
+        {{- toYaml .Values.gateway.hosts | nindent 8 }}
+{{- end }}

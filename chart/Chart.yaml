@@ -1,0 +1,6 @@
+apiVersion: v2
+name: minecraft-java
+description: UDS configuration chart for Minecraft Java Server
+type: application
+version: 0.1.0
+appVersion: "26.1.2"

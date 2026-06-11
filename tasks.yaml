@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/defenseunicorns/uds-cli/refs/heads/main/tasks.schema.json
+tasks:
+  - name: default
+    description: Build the pinned image and create the Minecraft package
+    actions:
+      - task: package
+
+  - name: image
+    description: Build the pinned Minecraft container image
+    actions:
+      - cmd: scripts/build-minecraft-zarf.sh --skip-package
+
+  - name: package
+    description: Build the pinned image and create the standalone Zarf package
+    actions:
+      - cmd: scripts/build-minecraft-zarf.sh --package-options "--skip-sbom"
+
+  - name: bundle
+    description: Create the local dev/test UDS bundle
+    actions:
+      - cmd: uds create bundle --confirm --output bundle
+
+  - name: dev
+    description: Build the package, create the dev bundle, and deploy it
+    actions:
+      - task: package
+      - task: bundle
+      - cmd: uds deploy bundle/uds-bundle-minecraft-java-dev-amd64-26.1.2-uds.0.tar.zst --confirm
+
+  - name: update-minecraft
+    description: Update committed Minecraft version pins from Mojang metadata
+    actions:
+      - cmd: scripts/update-minecraft-version.sh
+
+  - name: lint
+    description: Lint and render the Helm chart
+    actions:
+      - cmd: helm lint chart -f values/common-values.yaml
+      - cmd: helm template minecraft-java chart --namespace minecraft -f values/common-values.yaml

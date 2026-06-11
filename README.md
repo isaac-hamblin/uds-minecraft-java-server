@@ -1,91 +1,149 @@
-# Minecraft Java (UDS Bundle)
+# Minecraft Java UDS Package
 
-This repo deploys a Minecraft Java server on a local k3d cluster using UDS.
-The server jar is downloaded during the build step and baked into the Zarf package so the cluster doesn’t need internet at runtime.
+This repo builds a standalone UDS package for a Minecraft Java Edition server. The package is intended to deploy onto an existing UDS Core cluster, while `bundle/uds-bundle.yaml` keeps a local dev/test path that installs UDS Core first.
 
-## What you need installed
+The Minecraft server jar is pinned, downloaded during image build, checksum verified, and baked into the package image so the cluster does not need internet access at runtime.
 
-* Docker
-* k3d
-* kubectl
-* zarf
-* uds
-* jq + curl
+## Tooling
 
----
+Install:
 
-## 1) Create the cluster
+- Docker
+- k3d
+- kubectl
+- Helm
+- jq
+- yq
+- Zarf `v0.77.0+`
+- UDS CLI `v0.32.0+`
 
-From the repo root:
+## Package Defaults
+
+- Minecraft version: `26.1.2`
+- Package version: `26.1.2-uds.0`
+- Image: `minecraft-java-server:26.1.2`
+- EULA: `TRUE`
+- Online mode: `false`
+- Memory: `2G`
+- Persistent volume: `5Gi` using `local-path`
+- TCP port: `25565`
+- UDS service mesh mode: `ambient`
+
+`online-mode=false` is the air-gapped default. Change it with Helm values if your environment supports Mojang authentication.
+
+## Build The Standalone Package
+
+Build the pinned image and create the Zarf package:
+
+```bash
+uds run package
+```
+
+Equivalent direct command:
+
+```bash
+scripts/build-minecraft-zarf.sh --package-options "--skip-sbom"
+```
+
+The build reads `values/common-values.yaml`, verifies the pinned server jar SHA1 and SHA256, builds `minecraft-java-server:26.1.2`, and creates `zarf-package-minecraft-java-amd64-26.1.2-uds.0.tar.zst`.
+
+## Deploy Onto Existing UDS Core
+
+After UDS Core is already deployed:
+
+```bash
+uds deploy zarf-package-minecraft-java-amd64-26.1.2-uds.0.tar.zst --confirm
+```
+
+Check the deployment:
+
+```bash
+kubectl -n minecraft get pods
+kubectl -n minecraft get package minecraft
+kubectl -n minecraft logs deploy/minecraft-java --tail=50
+```
+
+Connect from Minecraft Java Edition using:
+
+```text
+127.0.0.1:25565
+```
+
+Use your load balancer or node address instead of `127.0.0.1` when connecting from another machine.
+
+## Local Dev/Test Bundle
+
+Create a local k3d cluster:
 
 ```bash
 k3d cluster create --config cluster-config.yaml
 ```
 
----
-
-## 2) Init Zarf
+Build the package, create the dev bundle, and deploy it:
 
 ```bash
-zarf init --confirm
+uds run package
+uds run bundle
+uds deploy bundle/uds-bundle-minecraft-java-dev-amd64-26.1.2-uds.0.tar.zst --confirm
 ```
 
----
+The local bundle includes:
 
-## 3) Build the package (downloads the latest server jar)
+- `uds-k3d-dev` `0.20.1-airgap`
+- Zarf init `v0.77.0`
+- UDS Core `1.6.0-upstream`
+- This Minecraft package
 
+The bundle preserves the tenant gateway TCP service port override for Minecraft on `25565`.
 
+## Configuration
+
+Primary package defaults live in `values/common-values.yaml` and `chart/values.yaml`.
+
+Common overrides:
+
+- `minecraft.memory`
+- `minecraft.onlineMode`
+- `minecraft.javaOpts`
+- `minecraft.serverProperties`
+- `persistence.size`
+- `persistence.storageClassName`
+- `gateway.enabled`
+- `network.additionalAllow`
+
+## Updating Minecraft
+
+Normal builds are reproducible and do not resolve `latest`. To intentionally update the pinned Minecraft version:
 
 ```bash
-chmod +x scripts/build-minecraft-zarf.sh
+uds run update-minecraft
 ```
 
-Build + create the UDS bundle artifact:
+To pin a specific version:
 
 ```bash
-./scripts/build-minecraft-zarf.sh --uds-create
+scripts/update-minecraft-version.sh --version 26.1.2 --uds-revision 0
 ```
 
-(If you want the latest snapshot instead of the latest release:)
+Review the resulting diff, then rebuild the package.
+
+## Validation
+
+Run static chart validation:
 
 ```bash
-./scripts/build-minecraft-zarf.sh --snapshot --uds-create
+uds run lint
 ```
 
----
-
-## 4) Deploy
+Or directly:
 
 ```bash
-UDS_CONFIG=uds-config.yaml uds deploy uds-bundle-minecraft-bundle-amd64-0.0.1.tar.zst --confirm
+helm lint chart -f values/common-values.yaml
+helm template minecraft-java chart --namespace minecraft -f values/common-values.yaml
 ```
 
----
-
-## 5) Check it’s running
+After a build, confirm the build workflow did not mutate tracked files:
 
 ```bash
-kubectl -n minecraft get pods
-kubectl -n minecraft logs deploy/minecraft-java --tail=50
-```
----
-
-## 6) Connect
-
-From Minecraft Java Edition add a server or use Direct Connect
-
-* On the same machine: `127.0.0.1:25565`
-* From another device on your network: `<your PC’s LAN IP>:25565`
-
-
-
----
-
-## Updating the server later
-
-Just run the build script again and redeploy:
-
-```bash
-./scripts/build-minecraft-zarf.sh --uds-create
-UDS_CONFIG=uds-config.yaml uds deploy uds-bundle-minecraft-bundle-amd64-0.0.1.tar.zst --confirm
+git diff --exit-code
 ```

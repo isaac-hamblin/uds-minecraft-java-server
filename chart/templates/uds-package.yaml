@@ -1,0 +1,27 @@
+apiVersion: uds.dev/v1alpha1
+kind: Package
+metadata:
+  name: minecraft
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "minecraft-java.labels" . | nindent 4 }}
+spec:
+  network:
+    serviceMesh:
+      mode: {{ .Values.network.serviceMesh.mode }}
+    allow:
+      - direction: Ingress
+        selector:
+          {{- include "minecraft-java.selectorLabels" . | nindent 10 }}
+        remoteNamespace: {{ .Values.gateway.namespace }}
+        remoteSelector:
+          {{- toYaml .Values.gateway.selector | nindent 10 }}
+        port: {{ .Values.service.port }}
+        description: "Minecraft TCP ingress from tenant gateway"
+      - direction: Ingress
+        remoteGenerated: IntraNamespace
+      - direction: Egress
+        remoteGenerated: IntraNamespace
+      {{- with .Values.network.additionalAllow }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}

@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/defenseunicorns/uds-cli/refs/heads/main/uds.schema.json
+kind: UDSBundle
+metadata:
+  name: minecraft-java-dev
+  description: "Local dev/test bundle for Minecraft Java Server and UDS Core"
+  version: "26.1.2-uds.0"
+  architecture: amd64
+
+packages:
+  - name: uds-k3d-dev
+    repository: ghcr.io/defenseunicorns/packages/uds-k3d
+    ref: 0.20.1-airgap
+
+  - name: init
+    repository: ghcr.io/zarf-dev/packages/init
+    ref: v0.77.0
+    keylessVerification:
+      certificateIdentityRegexp: https://github\.com/zarf-dev/zarf/\.github/workflows/release\.yml@refs/tags/v\d+\.\d+\.\d+
+      certificateOIDCIssuer: https://token.actions.githubusercontent.com
+
+  - name: core
+    repository: ghcr.io/defenseunicorns/packages/uds/core
+    ref: 1.6.0-upstream
+    overrides:
+      istio-tenant-gateway:
+        gateway:
+          values:
+            - path: "service.ports"
+              value:
+                - name: status-port
+                  port: 15021
+                  protocol: TCP
+                  targetPort: 15021
+                - name: http2
+                  port: 80
+                  protocol: TCP
+                  targetPort: 80
+                - name: https
+                  port: 443
+                  protocol: TCP
+                  targetPort: 443
+                - name: tcp-minecraft
+                  port: 25565
+                  protocol: TCP
+                  targetPort: 25565
+                  nodePort: 32565
+
+  - name: minecraft-java
+    path: ../
+    ref: 26.1.2-uds.0

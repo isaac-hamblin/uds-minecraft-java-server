@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "minecraft-java.fullname" . }}
+  labels:
+    {{- include "minecraft-java.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "minecraft-java.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "minecraft-java.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "minecraft-java.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      containers:
+        - name: minecraft
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: EULA
+              value: {{ .Values.minecraft.eula | quote }}
+            - name: MEMORY
+              value: {{ .Values.minecraft.memory | quote }}
+            - name: ONLINE_MODE
+              value: {{ .Values.minecraft.onlineMode | quote }}
+            - name: JAVA_OPTS
+              value: {{ .Values.minecraft.javaOpts | quote }}
+            - name: SERVER_PROPERTIES
+              value: |
+                server-port={{ .Values.service.targetPort }}
+                online-mode={{ .Values.minecraft.onlineMode }}
+                {{- range $key, $value := .Values.minecraft.serverProperties }}
+                {{ $key }}={{ $value }}
+                {{- end }}
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+              name: minecraft
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

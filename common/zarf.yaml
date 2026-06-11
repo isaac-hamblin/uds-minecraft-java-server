@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/defenseunicorns/zarf/main/zarf.schema.json
+kind: ZarfPackageConfig
+metadata:
+  name: minecraft-java-common
+  description: "Minecraft Java common package component"
+
+components:
+  - name: minecraft-java
+    required: true
+    charts:
+      - name: minecraft-java
+        namespace: minecraft
+        version: 0.1.0
+        localPath: ../chart
+        valuesFiles:
+          - ../values/common-values.yaml

@@ -1,0 +1,21 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "minecraft-java.fullname" . }}-tcp
+  labels:
+    {{- include "minecraft-java.labels" . | nindent 4 }}
+spec:
+  gateways:
+    - {{ .Values.gateway.namespace }}/{{ include "minecraft-java.fullname" . }}-tcp
+  hosts:
+    {{- toYaml .Values.gateway.hosts | nindent 4 }}
+  tcp:
+    - match:
+        - port: {{ .Values.gateway.port }}
+      route:
+        - destination:
+            host: {{ include "minecraft-java.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}

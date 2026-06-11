@@ -1,0 +1,59 @@
+image:
+  repository: minecraft-java-server
+  tag: "26.1.2"
+  pullPolicy: IfNotPresent
+
+minecraft:
+  version: "26.1.2"
+  eula: "TRUE"
+  memory: "2G"
+  onlineMode: "false"
+  javaOpts: ""
+  javaMajor: 25
+  serverJar:
+    url: "https://piston-data.mojang.com/v1/objects/97ccd4c0ed3f81bbb7bfacddd1090b0c56f9bc51/server.jar"
+    sha1: "97ccd4c0ed3f81bbb7bfacddd1090b0c56f9bc51"
+    sha256: "cd47e7c38328f64768fd17af8fcd8b22496b40b63d4ffee81e71ae059fedcb42"
+  serverProperties:
+    motd: "UDS Minecraft Server"
+    enable-rcon: "false"
+
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+
+service:
+  port: 25565
+  targetPort: 25565
+
+gateway:
+  enabled: true
+  namespace: istio-tenant-gateway
+  selector:
+    app: tenant-ingressgateway
+  hosts:
+    - "*"
+  port: 25565
+  portName: tcp-minecraft
+
+network:
+  serviceMesh:
+    mode: ambient
+  additionalAllow: []
+
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+resources: {}

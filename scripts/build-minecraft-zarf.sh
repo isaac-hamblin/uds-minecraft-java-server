@@ -1,90 +1,71 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# --- Config / Args ------------------------------------------------------------
-MODE="release"      # release | snapshot
-TAG="latest"        # image tag to build/package
-MC_VERSION=""       # optional override version like 1.21.4
-DO_UDS_CREATE="false"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VALUES_FILE="${ROOT_DIR}/values/common-values.yaml"
+BUILD_DIR="${ROOT_DIR}/.build/minecraft"
+CREATE_PACKAGE="true"
+PACKAGE_OPTIONS=""
+PLATFORM="linux/amd64"
+ARCHITECTURE="amd64"
 
 usage() {
   cat <<'EOF'
 Usage: scripts/build-minecraft-zarf.sh [options]
 
+Builds the pinned Minecraft Java server image from values/common-values.yaml.
+This script does not modify tracked package files.
+
 Options:
-  --snapshot              Use latest snapshot instead of latest release
-  --version <id>          Use a specific Minecraft version id (e.g. 1.21.4)
-  --tag <tag>             Docker image tag to build (default: latest)
-  --uds-create            Also run `uds create .` after building the zarf package
+  --skip-package          Build only the container image
+  --package-options <str> Extra options passed to `zarf package create`
+  --platform <platform>   Docker platform to build (default: linux/amd64)
+  --architecture <arch>   Zarf package architecture (default: amd64)
+  -h, --help              Show this help
 
 Requirements:
-  curl, jq, sha1sum, docker, zarf
+  curl, docker, shasum, yq, zarf
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --snapshot) MODE="snapshot"; shift ;;
-    --version)  MC_VERSION="${2:-}"; shift 2 ;;
-    --tag)      TAG="${2:-}"; shift 2 ;;
-    --uds-create) DO_UDS_CREATE="true"; shift ;;
-    -h|--help)  usage; exit 0 ;;
+    --skip-package) CREATE_PACKAGE="false"; shift ;;
+    --package-options) PACKAGE_OPTIONS="${2:-}"; shift 2 ;;
+    --platform) PLATFORM="${2:-}"; shift 2 ;;
+    --architecture) ARCHITECTURE="${2:-}"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1"; usage; exit 1 ;;
   esac
 done
 
-for bin in curl jq sha1sum docker zarf; do
+for bin in curl docker shasum yq; do
   command -v "$bin" >/dev/null 2>&1 || { echo "Missing required tool: $bin"; exit 1; }
 done
 
-MANIFEST_URL="https://launchermeta.mojang.com/mc/game/version_manifest.json"
-
-# --- Resolve version + download URLs -----------------------------------------
-echo "[build] Fetching Mojang version manifest..."
-manifest_json="$(curl -fsSL "$MANIFEST_URL")"
-
-if [[ -z "${MC_VERSION}" ]]; then
-  if [[ "$MODE" == "snapshot" ]]; then
-    MC_VERSION="$(jq -r '.latest.snapshot' <<<"$manifest_json")"
-  else
-    MC_VERSION="$(jq -r '.latest.release' <<<"$manifest_json")"
-  fi
+if [[ "$CREATE_PACKAGE" == "true" ]]; then
+  command -v zarf >/dev/null 2>&1 || { echo "Missing required tool: zarf"; exit 1; }
 fi
 
-version_url="$(jq -r --arg v "$MC_VERSION" '.versions[] | select(.id == $v) | .url' <<<"$manifest_json")"
-if [[ -z "$version_url" || "$version_url" == "null" ]]; then
-  echo "[error] Could not find version URL for version id: $MC_VERSION"
-  exit 1
-fi
-
-echo "[build] Resolving version metadata for $MC_VERSION..."
-ver_json="$(curl -fsSL "$version_url")"
-
-server_url="$(jq -r '.downloads.server.url' <<<"$ver_json")"
-server_sha1="$(jq -r '.downloads.server.sha1' <<<"$ver_json")"
-java_major="$(jq -r '.javaVersion.majorVersion // 21' <<<"$ver_json")"
-
-if [[ -z "$server_url" || "$server_url" == "null" ]]; then
-  echo "[error] Could not find downloads.server.url in version metadata"
-  exit 1
-fi
-
-echo "[build] Latest selected version: $MC_VERSION (Java $java_major)"
-echo "[build] Server URL: $server_url"
-
-# --- Build context ------------------------------------------------------------
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="$ROOT_DIR/.build/minecraft"
-IMG_NAME="minecraft-java-server:${TAG}"
+MC_VERSION="$(yq -r '.minecraft.version' "$VALUES_FILE")"
+JAVA_MAJOR="$(yq -r '.minecraft.javaMajor' "$VALUES_FILE")"
+SERVER_URL="$(yq -r '.minecraft.serverJar.url' "$VALUES_FILE")"
+SERVER_SHA1="$(yq -r '.minecraft.serverJar.sha1' "$VALUES_FILE")"
+SERVER_SHA256="$(yq -r '.minecraft.serverJar.sha256' "$VALUES_FILE")"
+IMAGE_REPOSITORY="$(yq -r '.image.repository' "$VALUES_FILE")"
+IMAGE_TAG="$(yq -r '.image.tag' "$VALUES_FILE")"
+IMG_NAME="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
-echo "[build] Downloading server.jar..."
-curl -fsSL "$server_url" -o "$BUILD_DIR/server.jar"
+echo "[build] Minecraft version: ${MC_VERSION} (Java ${JAVA_MAJOR})"
+echo "[build] Downloading pinned server jar..."
+curl -fsSL "$SERVER_URL" -o "$BUILD_DIR/server.jar"
 
-echo "[build] Verifying SHA1..."
-echo "${server_sha1}  $BUILD_DIR/server.jar" | sha1sum -c -
+echo "[build] Verifying SHA1 and SHA256..."
+printf '%s  %s\n' "$SERVER_SHA1" "$BUILD_DIR/server.jar" | shasum -a 1 -c -
+printf '%s  %s\n' "$SERVER_SHA256" "$BUILD_DIR/server.jar" | shasum -a 256 -c -
 
 cat > "$BUILD_DIR/entrypoint.sh" <<'EOS'
 #!/usr/bin/env sh
@@ -95,31 +76,28 @@ JAR_PATH="/opt/minecraft/server.jar"
 
 mkdir -p "$DATA_DIR"
 
-# Require explicit EULA acceptance.
-# Users can set EULA=TRUE in the Deployment.
 if [ ! -f "$DATA_DIR/eula.txt" ]; then
   if [ "${EULA:-}" != "TRUE" ] && [ "${EULA:-}" != "true" ]; then
     echo "[minecraft] You must accept the Minecraft EULA by setting EULA=TRUE"
-    echo "[minecraft] (This script will then write eula=true into $DATA_DIR/eula.txt)"
     exit 1
   fi
   echo "eula=true" > "$DATA_DIR/eula.txt"
 fi
 
-# Create a minimal server.properties if one doesn't exist yet.
-# For truly air-gapped environments, online-mode typically needs to be false.
 if [ ! -f "$DATA_DIR/server.properties" ]; then
-  ONLINE_MODE="${ONLINE_MODE:-false}"
-  MOTD="${MOTD:-UDS Minecraft Server}"
-  cat > "$DATA_DIR/server.properties" <<EOF
+  if [ -n "${SERVER_PROPERTIES:-}" ]; then
+    printf '%s\n' "$SERVER_PROPERTIES" > "$DATA_DIR/server.properties"
+  else
+    ONLINE_MODE="${ONLINE_MODE:-false}"
+    cat > "$DATA_DIR/server.properties" <<EOF
 server-port=25565
 online-mode=${ONLINE_MODE}
-motd=${MOTD}
+motd=UDS Minecraft Server
 enable-rcon=false
 EOF
+  fi
 fi
 
-# Memory: honor MEMORY like "2G" if provided
 JAVA_OPTS="${JAVA_OPTS:-}"
 if [ -n "${MEMORY:-}" ]; then
   JAVA_OPTS="$JAVA_OPTS -Xms${MEMORY} -Xmx${MEMORY}"
@@ -131,7 +109,7 @@ EOS
 chmod +x "$BUILD_DIR/entrypoint.sh"
 
 cat > "$BUILD_DIR/Dockerfile" <<EOF
-FROM eclipse-temurin:${java_major}-jre
+FROM eclipse-temurin:${JAVA_MAJOR}-jre
 WORKDIR /opt/minecraft
 COPY server.jar /opt/minecraft/server.jar
 COPY entrypoint.sh /entrypoint.sh
@@ -140,53 +118,14 @@ VOLUME ["/data"]
 ENTRYPOINT ["/entrypoint.sh"]
 EOF
 
-# --- Build image --------------------------------------------------------------
-echo "[build] Building Docker image: $IMG_NAME"
-docker build --platform linux/amd64 -t "$IMG_NAME" "$BUILD_DIR"
+echo "[build] Building Docker image: ${IMG_NAME}"
+docker build --platform "$PLATFORM" -t "$IMG_NAME" "$BUILD_DIR"
 docker image inspect "$IMG_NAME" >/dev/null
 
-# --- Patch repo references (optional but convenient) --------------------------
-DEPLOY_YAML="$ROOT_DIR/manifests/deployment.yaml"
-ZARF_YAML="$ROOT_DIR/zarf.yaml"
-
-echo "[build] Ensuring manifests reference image: $IMG_NAME"
-
-if [[ -f "$DEPLOY_YAML" ]]; then
-  # Replace itzg reference if present, otherwise replace first 'image:' under containers.
-  if grep -q "itzg/minecraft-server" "$DEPLOY_YAML"; then
-    sed -i -E "s#image:\s*itzg/minecraft-server:.*#image: ${IMG_NAME}#g" "$DEPLOY_YAML"
-  else
-    # Best-effort: replace any minecraft-java image line
-    sed -i -E "s#image:\s*minecraft-java-server:.*#image: ${IMG_NAME}#g" "$DEPLOY_YAML" || true
-  fi
+if [[ "$CREATE_PACKAGE" == "true" ]]; then
+  echo "[build] Creating Zarf package..."
+  # shellcheck disable=SC2086
+  (cd "$ROOT_DIR" && zarf package create . --confirm --architecture "$ARCHITECTURE" $PACKAGE_OPTIONS)
 fi
 
-if [[ -f "$ZARF_YAML" ]]; then
-  if grep -q "itzg/minecraft-server" "$ZARF_YAML"; then
-    sed -i -E "s#- \"?itzg/minecraft-server:.*\"?#- \"${IMG_NAME}\"#g" "$ZARF_YAML"
-  else
-    sed -i -E "s#- \"?minecraft-java-server:.*\"?#- \"${IMG_NAME}\"#g" "$ZARF_YAML" || true
-  fi
-fi
-
-# --- Create Zarf package ------------------------------------------------------
-echo "[build] Creating Zarf package..."
-(
-  cd "$ROOT_DIR"
-  zarf package create . --confirm
-)
-
-echo ""
-echo "[ok] Built server version: $MC_VERSION"
-echo "[ok] Built image: $IMG_NAME"
-echo "[ok] Zarf package should now exist in this directory."
-echo ""
-
-# --- Optionally create UDS bundle artifact -----------------------------------
-if [[ "$DO_UDS_CREATE" == "true" ]]; then
-  command -v uds >/dev/null 2>&1 || { echo "Missing required tool for --uds-create: uds"; exit 1; }
-  echo "[build] Creating UDS bundle artifact..."
-  ( cd "$ROOT_DIR" && uds create . --confirm )
-  echo "[ok] UDS bundle artifact created."
-fi
-
+echo "[ok] Built image: ${IMG_NAME}"

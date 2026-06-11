@@ -9,6 +9,7 @@ metadata:
     dev.uds.tagline: "Air-gapped Minecraft Java server package for UDS"
     dev.uds.categories: "Games,Examples"
     dev.uds.keywords: "minecraft,java,tcp,uds"
+    dev.uds.icon: "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22%3E%3Crect width=%22128%22 height=%22128%22 rx=%2218%22 fill=%22%234b321f%22/%3E%3Cpath fill=%22%2387c957%22 d=%22M0 0h128v46H0z%22/%3E%3Cpath fill=%22%2365a83f%22 d=%22M0 32h17v18H0zm28-8h18v24H28zm38 6h20v18H66zm37-11h25v29h-25z%22/%3E%3Cpath fill=%22%23714a2a%22 d=%22M0 46h128v82H0z%22/%3E%3Cpath fill=%22%2353361f%22 d=%22M12 59h16v16H12zm31 17h18v18H43zm34-17h16v17H77zm24 33h18v19h-18zM8 103h21v17H8zm60 0h17v25H68z%22/%3E%3Cpath fill=%22%23905f36%22 d=%22M0 46h128v10H0zM30 58h15v15H30zm35 22h18v18H65zm-20 25h15v18H45zm60-45h13v13h-13z%22/%3E%3C/svg%3E"
 
 components:
   - name: minecraft-java

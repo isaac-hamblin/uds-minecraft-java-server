@@ -39,12 +39,6 @@ Build the pinned image and create the Zarf package:
 uds run package
 ```
 
-Equivalent direct command:
-
-```bash
-scripts/build-minecraft-zarf.sh --package-options "--skip-sbom"
-```
-
 The build reads `values/common-values.yaml`, verifies the pinned server jar SHA1 and SHA256, builds `minecraft-java-server:26.1.2`, and creates `zarf-package-minecraft-java-amd64-26.1.2-uds.0.tar.zst`.
 
 ## Deploy Onto Existing UDS Core

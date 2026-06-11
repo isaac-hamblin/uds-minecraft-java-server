@@ -25,7 +25,7 @@ Install:
 - EULA: `TRUE`
 - Online mode: `false`
 - Memory: `2G`
-- Persistent volume: `5Gi` using `local-path`
+- Persistent volume: `5Gi` using the cluster default StorageClass
 - TCP port: `25565`
 - UDS service mesh mode: `ambient`
 
@@ -104,6 +104,13 @@ Common overrides:
 - `persistence.storageClassName`
 - `gateway.enabled`
 - `network.additionalAllow`
+
+By default, `persistence.storageClassName` is `null`, so the rendered PVC omits `storageClassName` and Kubernetes uses the cluster default StorageClass. Set it only when a target cluster needs a specific class:
+
+```yaml
+persistence:
+  storageClassName: openebs-hostpath
+```
 
 ## Updating Minecraft
 

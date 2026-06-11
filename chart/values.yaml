@@ -21,7 +21,7 @@ minecraft:
 persistence:
   enabled: true
   size: 5Gi
-  storageClassName: local-path
+  storageClassName: null
   accessModes:
     - ReadWriteOnce
 

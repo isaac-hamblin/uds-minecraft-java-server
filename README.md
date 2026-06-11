@@ -1,6 +1,6 @@
 # Minecraft Java UDS Package
 
-This repo builds a standalone UDS package for a Minecraft Java Edition server. The package is intended to deploy onto an existing UDS Core cluster, while `bundle/uds-bundle.yaml` keeps a local dev/test path that installs UDS Core first.
+This repo builds a standalone UDS package for a Minecraft Java Edition server. The package is intended to deploy onto a UDS Core cluster, while `bundle/uds-bundle.yaml` keeps a local dev/test path that installs UDS Core first.
 
 The Minecraft server jar is pinned, downloaded during image build, checksum verified, and baked into the package image so the cluster does not need internet access at runtime.
 
@@ -31,6 +31,43 @@ Install:
 
 `online-mode=false` is the air-gapped default. Change it with Helm values if your environment supports Mojang authentication.
 
+## Platform Prerequisite
+
+The Minecraft package owns the application, UDS `Package` CR, and Istio routing resources for TCP `25565`. It does not modify UDS Core's tenant ingress gateway Service.
+
+For LAN or load balancer access, the UDS Core environment must expose Minecraft's TCP port on the tenant ingress gateway. Configure this in the UDS Core/environment bundle, not in the Minecraft package:
+
+```yaml
+packages:
+  - name: core
+    repository: ghcr.io/defenseunicorns/packages/uds/core
+    ref: 1.6.0-upstream
+    overrides:
+      istio-tenant-gateway:
+        gateway:
+          values:
+            - path: "service.ports"
+              value:
+                - name: status-port
+                  port: 15021
+                  protocol: TCP
+                  targetPort: 15021
+                - name: http2
+                  port: 80
+                  protocol: TCP
+                  targetPort: 80
+                - name: https
+                  port: 443
+                  protocol: TCP
+                  targetPort: 443
+                - name: tcp-minecraft
+                  port: 25565
+                  protocol: TCP
+                  targetPort: 25565
+```
+
+Without this platform configuration, the Minecraft pod can be healthy while `:25565` is unreachable from outside the cluster.
+
 ## Build The Standalone Package
 
 Build the pinned image and create the Zarf package:
@@ -41,9 +78,9 @@ uds run package
 
 The build reads `values/common-values.yaml`, verifies the pinned server jar SHA1 and SHA256, builds `minecraft-java-server:26.1.2`, and creates `zarf-package-minecraft-java-amd64-26.1.2-uds.0.tar.zst`.
 
-## Deploy Onto Existing UDS Core
+## Deploy Onto UDS Core
 
-After UDS Core is already deployed:
+After the UDS Core platform is ready:
 
 ```bash
 uds deploy zarf-package-minecraft-java-amd64-26.1.2-uds.0.tar.zst --confirm
@@ -57,13 +94,13 @@ kubectl -n minecraft get package minecraft
 kubectl -n minecraft logs deploy/minecraft-java --tail=50
 ```
 
-Connect from Minecraft Java Edition using:
+If the tenant ingress gateway exposes `25565`, connect from Minecraft Java Edition using the gateway/load balancer address:
 
 ```text
-127.0.0.1:25565
+<tenant-gateway-external-ip>:25565
 ```
 
-Use your load balancer or node address instead of `127.0.0.1` when connecting from another machine.
+For a local tunnel test, run `kubectl -n minecraft port-forward svc/minecraft-java 25565:25565` on the same machine as the Minecraft client, then connect to `127.0.0.1:25565`.
 
 ## Local Dev/Test Bundle
 
